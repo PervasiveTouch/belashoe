@@ -1,0 +1,6 @@
+.DS_Store
+settings.json
+build/*
+belashoe
+.vscode/*
+data.csv
