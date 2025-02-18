@@ -34,25 +34,28 @@ function draw() {
     // Loop through 4x4 grid
     for (var row = 0; row < 4; row++) {
         for (var col = 0; col < 4; col++) {
-        	
-            var index = row * 4 + col; // Map grid to linear index
-            if (index < gridData.length) {
-                var value = gridData[index]*5; // Get touch value
-                var cellX = col * gridSize; // X position
-                var cellY = row * gridSize; // Y position
-
-                // Map touch value to color intensity (blue shade)
-                var intensity = map(value, 0, 5, 0, 255); // Scale 0-1 to 0-255
-                var intensityR = map(value, 0, 1, 0, 255); // Scale 0-1 to 0-255
-                var intensityG = map(value, 0, 15, 0, 255); // Scale 0-1 to 0-255
-                fill(intensityR, intensityG, intensity); // Blue shade based on touch value
-                rect(cellX + padding, cellY + padding, gridSize - 2 * padding, gridSize - 2 * padding);
-
-                // Add value as text inside the cell for debugging
-                fill(255);
-                textAlign(CENTER, CENTER);
-                text(value.toFixed(2), cellX + gridSize / 2, cellY + gridSize / 2);
-            }
+        	if (!(row === 0 && col == 3)) {
+	    		var index = row * 4 + col; // Map grid to linear index
+	            if (index < gridData.length) {
+	                var value = gridData[index]*5; // Get touch value
+	                var cellX = col * gridSize; // X position
+	                var cellY = row * gridSize; // Y position
+	
+	                // Map touch value to color intensity (blue shade)
+	                var intensity = map(value, 0, 5, 0, 255); // Scale 0-1 to 0-255
+	                var intensityR = map(value, 0, 1, 0, 255); // Scale 0-1 to 0-255
+	                var intensityG = map(value, 0, 15, 0, 255); // Scale 0-1 to 0-255
+	                
+	                fill(intensityR, intensityG, intensity);
+	                
+	                rect(cellX + padding, cellY + padding, gridSize - 2 * padding, gridSize - 2 * padding);
+	
+	                // Add value as text inside the cell for debugging
+	                fill(255);
+	                textAlign(CENTER, CENTER);
+	                text(value.toFixed(2), cellX + gridSize / 2, cellY + gridSize / 2);
+	            }
+        	}
         }
     }
     
