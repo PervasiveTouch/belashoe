@@ -1,10 +1,15 @@
+const numSensors = 8;
+
 var canvas, gridSize, padding;
+var sensorCalibration;
 var ampSlider; // Slider for amplification
 
 function setup() {
     canvas = createCanvas(windowWidth, windowHeight);
     gridSize = min(width, height) / 4; // Grid cell size (4x4 grid)
     padding = gridSize * 0.1; // Padding around each cell
+    
+    sensorCalibration = [0.04, 0.04, 0.05, 0.06, 0.07, 0.06, 0.05, 0.06];
     
     // Create slider (1 to 10)
     ampSlider = createSlider(1, 10, 5); // Default value is 5
@@ -20,14 +25,20 @@ function draw() {
 
     // Read touch data from Bela
     var touchData = Bela.data.buffers[0]; // Data sent on channel 0
-    if (!touchData || touchData.length < 8) return; // Skip if no data or insufficient channels
+    if (!touchData || touchData.length < numSensors) return; // Skip if no data or insufficient channels
     
-    var gridData = [];
+    // Normalization
+    var normData = [];
+    for (var i = 0; i < numSensors; i++) {
+    	var temp = touchData[i];
+    	normData.push(temp / sensorCalibration[i]);
+    }
     
     // Loop through the individual lanes and calculate all possible grid points
+    var gridData = [];
     for (var i = 7; i >= 4; i--) {
     	for (var j = 3; j >= 0; j--) {
-    		gridData.push((touchData[i]+touchData[j])*amplification);
+    		gridData.push((normData[i]*normData[j]));
     	}
     }
 
@@ -42,11 +53,9 @@ function draw() {
 	                var cellY = row * gridSize; // Y position
 	
 	                // Map touch value to color intensity (blue shade)
-	                var intensity = map(value, 0, 5, 0, 255); // Scale 0-1 to 0-255
-	                var intensityR = map(value, 0, 1, 0, 255); // Scale 0-1 to 0-255
-	                var intensityG = map(value, 0, 15, 0, 255); // Scale 0-1 to 0-255
+	                var intensity = map(value, 0, 1, 0, 255); // Scale 0-1 to 0-255
 	                
-	                fill(intensityR, intensityG, intensity);
+	                fill(intensity, 0, 0);
 	                
 	                rect(cellX + padding, cellY + padding, gridSize - 2 * padding, gridSize - 2 * padding);
 	
@@ -59,5 +68,7 @@ function draw() {
         }
     }
     
+    // Reset the arrays
     gridData = [];
+    normData = [];
 }
