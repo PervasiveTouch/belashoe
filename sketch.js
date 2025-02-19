@@ -52,11 +52,11 @@ function draw() {
 	                var cellX = col * gridSize; // X position
 	                var cellY = row * gridSize; // Y position
 	
-	                // Map touch value to color intensity (blue shade)
-	                var intensity = map(value, 0, 1, 0, 255); // Scale 0-1 to 0-255
+	                // Map touch value to color intensity
+	                var intensity1 = map(value, 0, 1, 0, 170, true); // Scale 0-1 to 0-255
+	                var intensity2 = map(value, 1, 5, 50, 170, true); // Scale 0-1 to 0-255
 	                
-	                fill(intensity, 0, 0);
-	                
+	                fill(0, intensity1, intensity2);
 	                rect(cellX + padding, cellY + padding, gridSize - 2 * padding, gridSize - 2 * padding);
 	
 	                // Add value as text inside the cell for debugging
