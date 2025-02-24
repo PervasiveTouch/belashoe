@@ -2,7 +2,7 @@ const numSensors = 8;
 
 var canvas, gridSize, padding;
 var sensorCalibration;
-var ampSlider; // Slider for amplification
+var valueMapping; // Slider for amplification
 
 function setup() {
     canvas = createCanvas(windowWidth, windowHeight);
@@ -12,16 +12,20 @@ function setup() {
     sensorCalibration = [0.04, 0.04, 0.05, 0.06, 0.07, 0.06, 0.05, 0.06];
     
     // Create slider (1 to 10)
-    ampSlider = createSlider(1, 10, 5); // Default value is 5
-    ampSlider.position(1500, 20); // Position the slider
-    ampSlider.style('width', '150px'); // Set slider width
+    valueMapping = createSlider(1, 15, 5, 0.5); // Default value is 5
+    valueMapping.position(width-170, 20); // Position the slider
+    valueMapping.style('width', '150px'); // Set slider width
+    
+    for (var i = 0; i < numSensors; i++) {
+    	circularBuffers.push(new CircularBuffer(500));
+    }
 }
 
 function draw() {
     background(255); // Clear canvas
     noStroke();
     
-    var amplification = ampSlider.value(); // Get amplification factor
+    var intensity = valueMapping.value(); // Get amplification factor
 
     // Read touch data from Bela
     var touchData = Bela.data.buffers[0]; // Data sent on channel 0
@@ -30,8 +34,8 @@ function draw() {
     // Normalization
     var normData = [];
     for (var i = 0; i < numSensors; i++) {
-    	var temp = touchData[i];
-    	normData.push(temp / sensorCalibration[i]);
+		var temp = touchData[i];
+		normData.push(temp / sensorCalibration[i]);
     }
     
     // Loop through the individual lanes and calculate all possible grid points
@@ -54,7 +58,7 @@ function draw() {
 	
 	                // Map touch value to color intensity
 	                var intensity1 = map(value, 0, 1, 0, 170, true); // Scale 0-1 to 0-255
-	                var intensity2 = map(value, 1, 5, 50, 170, true); // Scale 0-1 to 0-255
+	                var intensity2 = map(value, 1, intensity, 50, 170, true); // Scale 0-1 to 0-255
 	                
 	                fill(0, intensity1, intensity2);
 	                rect(cellX + padding, cellY + padding, gridSize - 2 * padding, gridSize - 2 * padding);
