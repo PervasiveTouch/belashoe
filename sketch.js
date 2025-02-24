@@ -15,10 +15,6 @@ function setup() {
     valueMapping = createSlider(1, 15, 5, 0.5); // Default value is 5
     valueMapping.position(width-170, 20); // Position the slider
     valueMapping.style('width', '150px'); // Set slider width
-    
-    for (var i = 0; i < numSensors; i++) {
-    	circularBuffers.push(new CircularBuffer(500));
-    }
 }
 
 function draw() {
@@ -30,6 +26,9 @@ function draw() {
     // Read touch data from Bela
     var touchData = Bela.data.buffers[0]; // Data sent on channel 0
     if (!touchData || touchData.length < numSensors) return; // Skip if no data or insufficient channels
+    
+    var maxValues = Bela.data.buffers[1];
+    console.log(maxValues);
     
     // Normalization
     var normData = [];

@@ -6,14 +6,21 @@
 #include <fstream>
 #include <iostream>
 #include <sys/time.h>
+#include "circularbuffer.h"
 
 #define NUM_CAP_CHANNELS 8
+#define BUFFER_SIZE 500
 #define LOGGING_INTERVAL 5000   // Interval in microseconds
 
 Trill touchSensor;
 Gui gui;
 
 std::ofstream file;
+
+CircularBuffer sensorBuffers[NUM_CAP_CHANNELS] = {
+	CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), 
+	CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE)
+};
 
 // Sleep time for auxiliary task
 unsigned int gTaskSleepTime = 1400; // microseconds -> according to the scan time at normal speed and 13 bits
@@ -100,6 +107,9 @@ void loopLogging(void *)
     while(!Bela_stopRequested())
     {
         logTouchInputToBuffer(touchSensor.rawData);
+        for (int i = 0; i < NUM_CAP_CHANNELS; i++) {
+			sensorBuffers[i].push_back(touchSensor.rawData[i]);
+		}
         usleep(LOGGING_INTERVAL);
     }
 }
@@ -138,6 +148,11 @@ void render(BelaContext *context, void *userData)
 		{
 			// Send rawData to the GUI
 			gui.sendBuffer(0, touchSensor.rawData); // Channel 0
+			float max_values[NUM_CAP_CHANNELS];
+			for (int i = 0; i < NUM_CAP_CHANNELS; i++) {
+				max_values[i] = sensorBuffers[i].getMax();	
+			}
+			gui.sendBuffer(1, max_values);
 			count = 0;
 		}
 		count++;
