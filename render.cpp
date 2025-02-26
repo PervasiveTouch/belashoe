@@ -35,6 +35,8 @@ struct LogEntry{
 
 std::vector<LogEntry> dataBuffer;
 
+float initialCalibration[8] = {0.04, 0.04, 0.05, 0.06, 0.07, 0.06, 0.05, 0.06};
+
 void writeBufferToCSV(){
 	if (!file.is_open())
     {
@@ -107,9 +109,6 @@ void loopLogging(void *)
     while(!Bela_stopRequested())
     {
         logTouchInputToBuffer(touchSensor.rawData);
-        for (int i = 0; i < NUM_CAP_CHANNELS; i++) {
-			sensorBuffers[i].push_back(touchSensor.rawData[i]);
-		}
         usleep(LOGGING_INTERVAL);
     }
 }
@@ -133,6 +132,11 @@ bool setup(BelaContext *context, void *userData)
     Bela_runAuxiliaryTask(readFromSensor);
     Bela_runAuxiliaryTask(writeLog);
     Bela_runAuxiliaryTask(loopLogging);
+	
+	// push initial calibration to buffer
+    for (int i = 0; i < NUM_CAP_CHANNELS; i++) {
+		sensorBuffers[i].push_back(initialCalibration[i]);
+	}
 
     return true;
 }
@@ -148,6 +152,9 @@ void render(BelaContext *context, void *userData)
 		{
 			// Send rawData to the GUI
 			gui.sendBuffer(0, touchSensor.rawData); // Channel 0
+			for (int i = 0; i < NUM_CAP_CHANNELS; i++) {
+				sensorBuffers[i].push_back(touchSensor.rawData[i]);
+			}
 			float max_values[NUM_CAP_CHANNELS];
 			for (int i = 0; i < NUM_CAP_CHANNELS; i++) {
 				max_values[i] = sensorBuffers[i].getMax();	

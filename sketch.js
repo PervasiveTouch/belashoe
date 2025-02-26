@@ -27,8 +27,9 @@ function draw() {
     var touchData = Bela.data.buffers[0]; // Data sent on channel 0
     if (!touchData || touchData.length < numSensors) return; // Skip if no data or insufficient channels
     
-    var maxValues = Bela.data.buffers[1];
-    console.log(maxValues);
+    
+    sensorCalibration = Bela.data.buffers[1];	
+    console.log(sensorCalibration);
     
     // Normalization
     var normData = [];
