@@ -10,7 +10,8 @@
 
 #define NUM_CAP_CHANNELS 8
 #define BUFFER_SIZE 500
-#define LOGGING_INTERVAL 5000   // Interval in microseconds
+#define LOGGING_INTERVAL 5000 // Interval in microseconds
+#define LOGGING_FREQUENCY 200 // Logging frequency in hz
 
 Trill touchSensor;
 Gui gui;
@@ -18,27 +19,29 @@ Gui gui;
 std::ofstream file;
 
 CircularBuffer sensorBuffers[NUM_CAP_CHANNELS] = {
-	CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), 
-	CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE)
-};
+    CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE),
+    CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE)};
 
 // Sleep time for auxiliary task
 unsigned int gTaskSleepTime = 1400; // microseconds -> according to the scan time at normal speed and 13 bits
 // Time period (in seconds) after which data will be sent to the GUI
 float gTimePeriod = 0.1;
 
+unsigned int logIntervalFrames = 0;
+
 // Readings for all the different pads on the Trill Craft
-struct LogEntry{
-    timeval tv;
-    float gSensorReading[NUM_CAP_CHANNELS] = { 0.0 };
+struct LogEntry
+{
+    float gSensorReading[NUM_CAP_CHANNELS] = {0.0};
 };
 
 std::vector<LogEntry> dataBuffer;
 
 float initialCalibration[8] = {0.04, 0.04, 0.05, 0.06, 0.07, 0.06, 0.05, 0.06};
 
-void writeBufferToCSV(){
-	if (!file.is_open())
+void writeBufferToCSV()
+{
+    if (!file.is_open())
     {
         const std::string filename = "data.csv";
         file.open(filename, std::ios::app); // Open file in append mode
@@ -48,13 +51,14 @@ void writeBufferToCSV(){
             return;
         }
     }
-    
-    for (const auto& entry : dataBuffer) {
-        file << entry.tv.tv_sec << "," << entry.tv.tv_usec;
-        for (float value : entry.gSensorReading) {
+
+    for (const auto &entry : dataBuffer)
+    {
+        for (float value : entry.gSensorReading)
+        {
             file << "," << value;
         }
-        file << "\n";  // Newline for next entry
+        file << "\n"; // Newline for next entry
     }
 
     file.close();
@@ -63,17 +67,12 @@ void writeBufferToCSV(){
 
 void logTouchInputToBuffer(std::vector<float> input)
 {
-	LogEntry currentReading;
-	
-    // Add a timestamp
-    gettimeofday(&currentReading.tv, NULL);
+    LogEntry currentReading;
 
-	for(unsigned int i = 0; i < NUM_CAP_CHANNELS; i++)
-		currentReading.gSensorReading[i] = input[i];
-	
+    for (unsigned int i = 0; i < NUM_CAP_CHANNELS; i++)
+        currentReading.gSensorReading[i] = input[i];
+
     dataBuffer.push_back(currentReading);
-
-    // std::cout << "Time difference: " << currentReading.tv.tv_sec - tv.tv_sec << " - " << currentReading.tv.tv_usec - tv.tv_usec << "\n";
 }
 
 void closeCSVFile()
@@ -86,30 +85,42 @@ void closeCSVFile()
 
 void readFromSensor(void *)
 {
-    while(!Bela_stopRequested())
-	{
-		// Read raw data from sensor
-		touchSensor.readI2C();
-		usleep(gTaskSleepTime);
-	}
+    while (!Bela_stopRequested())
+    {
+        // Read raw data from sensor
+        touchSensor.readI2C();
+        usleep(gTaskSleepTime);
+    }
 }
 
 void writeLog(void *)
 {
-    while(!Bela_stopRequested())
-	{
-		writeBufferToCSV();
-        dataBuffer.clear();  // Clear buffer after writing
+    while (!Bela_stopRequested())
+    {
+        writeBufferToCSV();
+        dataBuffer.clear(); // Clear buffer after writing
         usleep(1000000);
-	}
+    }
 }
 
-void loopLogging(void *)
+void sendToGui(void *)
 {
-    while(!Bela_stopRequested())
+    while (!Bela_stopRequested())
     {
-        logTouchInputToBuffer(touchSensor.rawData);
-        usleep(LOGGING_INTERVAL);
+        // Send rawData to the GUI
+        gui.sendBuffer(0, touchSensor.rawData); // Channel 0
+        for (int i = 0; i < NUM_CAP_CHANNELS; i++)
+        {
+            sensorBuffers[i].push_back(touchSensor.rawData[i]);
+        }
+        float max_values[NUM_CAP_CHANNELS];
+        for (int i = 0; i < NUM_CAP_CHANNELS; i++)
+        {
+            max_values[i] = sensorBuffers[i].getMax();
+        }
+        gui.sendBuffer(1, max_values); // Channel 1
+
+        usleep(gTimePeriod * 1000000);
     }
 }
 
@@ -131,12 +142,15 @@ bool setup(BelaContext *context, void *userData)
 
     Bela_runAuxiliaryTask(readFromSensor);
     Bela_runAuxiliaryTask(writeLog);
-    Bela_runAuxiliaryTask(loopLogging);
-	
-	// push initial calibration to buffer
-    for (int i = 0; i < NUM_CAP_CHANNELS; i++) {
-		sensorBuffers[i].push_back(initialCalibration[i]);
-	}
+    Bela_runAuxiliaryTask(sendToGui);
+
+    // push initial calibration to buffer
+    for (int i = 0; i < NUM_CAP_CHANNELS; i++)
+    {
+        sensorBuffers[i].push_back(initialCalibration[i]);
+    }
+
+    logIntervalFrames = context->audioSampleRate / LOGGING_FREQUENCY;
 
     return true;
 }
@@ -145,28 +159,18 @@ void render(BelaContext *context, void *userData)
 {
     static unsigned int count = 0;
 
-	for(unsigned int n = 0; n < context->audioFrames; n++) {
-		// Send number of touches, touch location and size to the GUI
-		// after some time has elapsed.
-		if(count >= gTimePeriod*context->audioSampleRate)
-		{
-			// Send rawData to the GUI
-			gui.sendBuffer(0, touchSensor.rawData); // Channel 0
-			for (int i = 0; i < NUM_CAP_CHANNELS; i++) {
-				sensorBuffers[i].push_back(touchSensor.rawData[i]);
-			}
-			float max_values[NUM_CAP_CHANNELS];
-			for (int i = 0; i < NUM_CAP_CHANNELS; i++) {
-				max_values[i] = sensorBuffers[i].getMax();	
-			}
-			gui.sendBuffer(1, max_values);
-			count = 0;
-		}
-		count++;
-	}
+    for (unsigned int i = 0; i < context->audioFrames; i++)
+    {
+        if (count >= logIntervalFrames)
+        {
+            logTouchInputToBuffer(touchSensor.rawData);
+            count = 0;
+        }
+        count++;
+    }
 }
 
 void cleanup(BelaContext *context, void *userData)
 {
-	closeCSVFile();
+    closeCSVFile();
 }
