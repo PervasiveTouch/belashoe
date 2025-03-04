@@ -3,4 +3,4 @@ settings.json
 build/*
 belashoe
 .vscode/*
-data.csv
+*.csv
