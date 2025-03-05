@@ -151,6 +151,8 @@ bool setup(BelaContext *context, void *userData)
     }
 
     logIntervalFrames = context->audioSampleRate / LOGGING_FREQUENCY;
+    
+    std::cout << "audioSampleRate: " << context->audioSampleRate << ", audioFrames: " << context->audioFrames << std::endl;
 
     return true;
 }
