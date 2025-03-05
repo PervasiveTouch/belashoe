@@ -1,6 +1,6 @@
 .DS_Store
 settings.json
-build/*
+bela-project/build/*
 belashoe
 .vscode/*
 *.csv
