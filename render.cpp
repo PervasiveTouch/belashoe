@@ -5,39 +5,38 @@
 #include <string>
 #include <fstream>
 #include <iostream>
-#include <sys/time.h>
+
 #include "circularbuffer.h"
 
 #define NUM_CAP_CHANNELS 8
 #define BUFFER_SIZE 500
-#define LOGGING_INTERVAL 5000 // Interval in microseconds
-#define LOGGING_FREQUENCY 200 // Logging frequency in hz
+#define LOGGING_INTERVAL 5000 // in microseconds
+#define LOGGING_FREQUENCY 200 // in hz
 
 Trill touchSensor;
 Gui gui;
 
 std::ofstream file;
 
+unsigned int gLogIntervalFrames = 0;
+
+// Sleep time for auxiliary task in microseconds-> according to the scan time at normal speed and 13 bits
+unsigned int gTaskSleepTime = 1400;
+// Time period (in seconds) after which data will be sent to the GUI
+float gTimePeriod = 0.1;
+
+// Initial calibration and circular buffer for calculating max value of each sensor over time
+float initialCalibration[8] = {0.04, 0.04, 0.05, 0.06, 0.07, 0.06, 0.05, 0.06};
 CircularBuffer sensorBuffers[NUM_CAP_CHANNELS] = {
     CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE),
     CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE), CircularBuffer(BUFFER_SIZE)};
 
-// Sleep time for auxiliary task
-unsigned int gTaskSleepTime = 1400; // microseconds -> according to the scan time at normal speed and 13 bits
-// Time period (in seconds) after which data will be sent to the GUI
-float gTimePeriod = 0.1;
-
-unsigned int logIntervalFrames = 0;
-
-// Readings for all the different pads on the Trill Craft
+// Buffer for sensor readings
 struct LogEntry
 {
     float gSensorReading[NUM_CAP_CHANNELS] = {0.0};
 };
-
 std::vector<LogEntry> dataBuffer;
-
-float initialCalibration[8] = {0.04, 0.04, 0.05, 0.06, 0.07, 0.06, 0.05, 0.06};
 
 void writeBufferToCSV()
 {
@@ -58,10 +57,11 @@ void writeBufferToCSV()
         {
             file << "," << value;
         }
-        file << "\n"; // Newline for next entry
+        file << "\n";
     }
 
     file.close();
+    
     std::cout << "Saved " << dataBuffer.size() << " entries" << std::endl;
 }
 
@@ -87,7 +87,7 @@ void readFromSensor(void *)
 {
     while (!Bela_stopRequested())
     {
-        // Read raw data from sensor
+        // Read raw data from sensor in specified intervals
         touchSensor.readI2C();
         usleep(gTaskSleepTime);
     }
@@ -97,8 +97,9 @@ void writeLog(void *)
 {
     while (!Bela_stopRequested())
     {
+    	// Write all accumulated values to buffer each second
         writeBufferToCSV();
-        dataBuffer.clear(); // Clear buffer after writing
+        dataBuffer.clear();
         usleep(1000000);
     }
 }
@@ -113,6 +114,7 @@ void sendToGui(void *)
         {
             sensorBuffers[i].push_back(touchSensor.rawData[i]);
         }
+        // Get and send the max of each sensor
         float max_values[NUM_CAP_CHANNELS];
         for (int i = 0; i < NUM_CAP_CHANNELS; i++)
         {
@@ -134,12 +136,13 @@ bool setup(BelaContext *context, void *userData)
     }
     touchSensor.printDetails();
 
-    touchSensor.setMode(Trill::DIFF);   // set the sensor to DIFF mode
+    touchSensor.setMode(Trill::DIFF);
     touchSensor.setScanSettings(2, 13); // 2 = normal update speed, 13 bit resolution -> 1400us scan time
     touchSensor.setPrescaler(3);
 
     gui.setup(context->projectName);
 
+	// Start all auxiliary task loops
     Bela_runAuxiliaryTask(readFromSensor);
     Bela_runAuxiliaryTask(writeLog);
     Bela_runAuxiliaryTask(sendToGui);
@@ -150,7 +153,8 @@ bool setup(BelaContext *context, void *userData)
         sensorBuffers[i].push_back(initialCalibration[i]);
     }
 
-    logIntervalFrames = context->audioSampleRate / LOGGING_FREQUENCY;
+	// Calculate how many frames it takes to achieve the specified logging frequency
+    gLogIntervalFrames = context->audioSampleRate / LOGGING_FREQUENCY;
     
     std::cout << "audioSampleRate: " << context->audioSampleRate << ", audioFrames: " << context->audioFrames << std::endl;
 
@@ -161,9 +165,11 @@ void render(BelaContext *context, void *userData)
 {
     static unsigned int count = 0;
 
+	// Iterate over all frames in the render call
     for (unsigned int i = 0; i < context->audioFrames; i++)
     {
-        if (count >= logIntervalFrames)
+    	// If enough frames have passed, log the values
+        if (count >= gLogIntervalFrames)
         {
             logTouchInputToBuffer(touchSensor.rawData);
             count = 0;
