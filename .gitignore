@@ -1,4 +1,5 @@
 .DS_Store
+.venv/*
 settings.json
 bela-project/build/*
 belashoe
