@@ -1,0 +1,3 @@
+[submodule "belashoe-bela-project"]
+	path = belashoe-bela-project
+	url = git@github.com:PervasiveTouch/belashoe-bela-project.git
