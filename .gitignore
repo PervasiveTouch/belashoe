@@ -1,4 +1,5 @@
 .DS_Store
-.venv/*
-.vscode/*
+.venv
+.vscode
 *.csv
+__pycache__
