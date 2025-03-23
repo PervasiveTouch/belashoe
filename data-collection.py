@@ -48,7 +48,8 @@ def save_data(data_dict):
         df.to_csv(PATH, mode="a", index=False)
     else:
         df.to_csv(PATH, mode="a", index=False, header=False)
-    print("done saving data")
+    # TODO: Warum kommen nicht alle gesendeten Reihen an?
+    print(f"done saving {len(data_dict['timestamp'])} rows")
 
 
 def handle_sensor_data(data):
