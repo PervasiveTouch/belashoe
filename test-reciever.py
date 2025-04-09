@@ -11,6 +11,7 @@ counter = 0
 def register(sensor: SensorUDP):
     print("Registering...")
     sensor.register_callback("shoe_data", handle_bela)
+    sensor.register_callback("shoe_baseline", handle_bela_baseline)
     print("Sensor registered!")
 
 
@@ -18,11 +19,15 @@ def handle_bela(data):
     global data_dic, counter
     data_dic.append({"timestamp": data.pop(0), "sensors": [value for value in data]})
     try:
-        if (data_dic[-1]["timestamp"] - data_dic[-2]["timestamp"]) != 1:
-            print(f"PACKET LOST!!!")
+        diff_to_prev = data_dic[-1]["timestamp"] - data_dic[-2]["timestamp"]
+        if (diff_to_prev) != 1:
+            print(f"{diff_to_prev-1} PACKET(S) LOST!!!")
     except IndexError:
         print("Could not yet compare to sencond to last timestamp.")
     counter += 1
+
+def handle_bela_baseline(data):
+    print(f"Current basline: {data}")
 
 
 if __name__ == "__main__":
